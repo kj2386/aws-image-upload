@@ -12,7 +12,7 @@ public class AmazonConfig {
     @Bean
     public AmazonS3 s3() {
         return AmazonS3ClientBuilder.standard()
-                .withRegion(Regions.DEFAULT_REGION)
+                .withRegion(Regions.US_WEST_1)
                 .build();
     }
 }

@@ -28,7 +28,7 @@ public class UserProfileService {
         return userProfileDataAccessService.getUserProfiles();
     }
 
-    void uploadUserProfileImage(UUID userProfileId, MultipartFile file) {
+    public void uploadUserProfileImage(UUID userProfileId, MultipartFile file) {
         isFileEmpty(file);
 
         isImage(file);
@@ -38,13 +38,25 @@ public class UserProfileService {
         Map<String, String> metadata = extractMetadata(file);
 
         String path = String.format("%s/%s", BucketName.PROFILE_IMAGE.getBucketName(), user.getUserProfileId());
-        String filename = String.format("%s-%s", file.getName(), UUID.randomUUID());
+        String filename = String.format("%s-%s", file.getOriginalFilename(), UUID.randomUUID());
 
         try {
             fileStore.save(path, filename, Optional.of(metadata), file.getInputStream());
+            user.setUserProfileImageLink(filename);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    public byte[] downloadUserProfileImage(UUID userProfileId) {
+        UserProfile user = getUserProfileOrThrow(userProfileId);
+        String path = String.format("%s/%s",
+                BucketName.PROFILE_IMAGE.getBucketName(),
+                user.getUserProfileId());
+
+        return user.getUserProfileImageLink()
+                .map(key -> fileStore.download(path, key))
+                .orElse(new byte[0]);
     }
 
     private Map<String, String> extractMetadata(MultipartFile file) {
@@ -64,7 +76,10 @@ public class UserProfileService {
     }
 
     private void isImage(MultipartFile file) {
-        if (!Arrays.asList(IMAGE_JPEG, IMAGE_PNG, IMAGE_GIF).contains(file.getContentType())) {
+        if (!Arrays.asList(
+                IMAGE_JPEG.getMimeType(),
+                IMAGE_PNG.getMimeType(),
+                IMAGE_GIF.getMimeType()).contains(file.getContentType())) {
             throw new IllegalStateException("File must be an image");
         }
     }
@@ -74,5 +89,7 @@ public class UserProfileService {
             throw new IllegalStateException("Cannot upload empty file [" + file.getSize() + "]");
         }
     }
+
+
 }
 
