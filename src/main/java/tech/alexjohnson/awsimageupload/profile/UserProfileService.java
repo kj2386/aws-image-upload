@@ -29,23 +29,13 @@ public class UserProfileService {
     }
 
     void uploadUserProfileImage(UUID userProfileId, MultipartFile file) {
-        if (file.isEmpty()) {
-            throw new IllegalStateException("Cannot upload empty file [" + file.getSize() + "]");
-        }
-        if (!Arrays.asList(IMAGE_JPEG, IMAGE_PNG, IMAGE_GIF).contains(file.getContentType())) {
-            throw new IllegalStateException("File must be an image");
-        }
-        
-        UserProfile user = userProfileDataAccessService
-                .getUserProfiles()
-                .stream()
-                .filter(userProfile -> userProfile.getUserProfileId().equals(userProfileId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(String.format("User profile %s not found", userProfileId)));
+        isFileEmpty(file);
 
-        Map<String, String> metadata = new HashMap<>();
-        metadata.put("Content-Type", file.getContentType());
-        metadata.put("Content-Length", String.valueOf(file.getSize()));
+        isImage(file);
+
+        UserProfile user = getUserProfileOrThrow(userProfileId);
+
+        Map<String, String> metadata = extractMetadata(file);
 
         String path = String.format("%s/%s", BucketName.PROFILE_IMAGE.getBucketName(), user.getUserProfileId());
         String filename = String.format("%s-%s", file.getName(), UUID.randomUUID());
@@ -54,6 +44,34 @@ public class UserProfileService {
             fileStore.save(path, filename, Optional.of(metadata), file.getInputStream());
         } catch (IOException e) {
             throw new IllegalStateException(e);
+        }
+    }
+
+    private Map<String, String> extractMetadata(MultipartFile file) {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("Content-Type", file.getContentType());
+        metadata.put("Content-Length", String.valueOf(file.getSize()));
+        return metadata;
+    }
+
+    private UserProfile getUserProfileOrThrow(UUID userProfileId) {
+        return userProfileDataAccessService
+                .getUserProfiles()
+                .stream()
+                .filter(userProfile -> userProfile.getUserProfileId().equals(userProfileId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(String.format("User profile %s not found", userProfileId)));
+    }
+
+    private void isImage(MultipartFile file) {
+        if (!Arrays.asList(IMAGE_JPEG, IMAGE_PNG, IMAGE_GIF).contains(file.getContentType())) {
+            throw new IllegalStateException("File must be an image");
+        }
+    }
+
+    private void isFileEmpty(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new IllegalStateException("Cannot upload empty file [" + file.getSize() + "]");
         }
     }
 }
